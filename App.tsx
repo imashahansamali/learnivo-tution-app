@@ -1,20 +1,44 @@
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { configured } from './src/config/firebase';
+import { AuthProvider } from './src/context/AuthContext';
+import RootNavigator from './src/navigation/RootNavigator';
+import {
+  Screen,
+  Card,
+  Heading,
+  Body,
+} from './src/components/UI';
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <StatusBar style="dark" />
+
+      {configured ? (
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      ) : (
+        <Screen title="Welcome to Learnivo">
+          <Card>
+            <Heading>Connect your Firebase project</Heading>
+
+            <Body>
+              Enter your Firebase Web configuration in the
+              .env file. Enable Email/Password Authentication
+              and publish firestore.rules.
+            </Body>
+
+            <Body>
+              Then restart using:
+              {'\n'}npx expo start --clear
+            </Body>
+          </Card>
+        </Screen>
+      )}
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
