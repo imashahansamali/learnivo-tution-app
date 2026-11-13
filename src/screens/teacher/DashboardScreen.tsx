@@ -1,56 +1,45 @@
-import React from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useCollection } from '../../hooks/useCollection';
-import type { ClassItem } from '../../types';
-import { days, time } from '../../utils/matching';
+import React from "react";
+import { Text } from "react-native";
+import { useAuth } from "../../context/AuthContext";
+import { useCollection } from "../../hooks/useCollection";
+import type { ClassItem } from "../../types";
+import { days, time } from "../../utils/matching";
 import {
-  Badge,
-  Body,
-  Button,
-  Card,
-  ErrorText,
-  Heading,
   Screen,
-} from '../../components/UI';
+  Card,
+  Heading,
+  Body,
+  Badge,
+  Button,
+  ErrorText,
+} from "../../components/UI";
 
-export default function DashboardScreen({
-  navigation,
-}: any) {
+export default function DashboardScreen({ navigation: n }: any) {
   const { user, profile } = useAuth();
-
-  const { items, error, loading } =
-    useCollection<ClassItem>('classes', [
-      ['teacherId', user!.uid],
-    ]);
+  const { items, error, loading } = useCollection<ClassItem>("classes", [
+    ["teacherId", user!.uid],
+  ]);
 
   return (
-    <Screen
-      title="Teacher workspace"
-      subtitle={`Welcome, ${profile?.name}`}
-    >
+    <Screen title="Teacher workspace" subtitle={`Welcome, ${profile?.name}`}>
       <Button
         title="Create a class"
-        onPress={() => navigation.navigate('ClassEditor')}
+        onPress={() => n.navigate("ClassEditor")}
       />
-
       <Button
         secondary
         title="Review requests and waitlist"
-        onPress={() =>
-          navigation.navigate('TeacherRequests')
-        }
+        onPress={() => n.navigate("TeacherRequests")}
       />
-
       <Button
         secondary
         title="Students"
-        onPress={() => navigation.navigate('Students')}
+        onPress={() => n.navigate("Students")}
       />
-
       <Button
         secondary
         title="Profile"
-        onPress={() => navigation.navigate('Profile')}
+        onPress={() => n.navigate("Profile")}
       />
 
       <ErrorText message={error} />
@@ -61,28 +50,26 @@ export default function DashboardScreen({
         <Body>Create your first class to get started.</Body>
       )}
 
-      {items.map(item => (
-        <Card key={item.id}>
-          <Heading>{item.title}</Heading>
+      {items.map((c) => (
+        <Card key={c.id} backgroundColor="#D5E8E6">
+          <Heading>{c.title}</Heading>
 
           <Body>
-            {days[item.day]} {time(item.start)}–
-            {time(item.end)}
+            <Text style={{ color: "#B91C1C", fontWeight: "700" }}>
+              {days[c.day]}
+            </Text>{" "}
+            {time(c.start)}–{time(c.end)}
           </Body>
 
-          <Badge warning={!item.active}>
-            {item.active ? 'Published' : 'Closed'} ·{' '}
-            {item.enrolledCount}/{item.capacity} enrolled
+          <Badge warning={!c.active}>
+            {c.active ? "Published" : "Closed"} · {c.enrolledCount}/{c.capacity}{" "}
+            enrolled
           </Badge>
 
           <Button
             secondary
             title="Edit class / capacity"
-            onPress={() =>
-              navigation.navigate('ClassEditor', {
-                id: item.id,
-              })
-            }
+            onPress={() => n.navigate("ClassEditor", { id: c.id })}
           />
         </Card>
       ))}
