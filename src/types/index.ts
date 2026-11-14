@@ -1,4 +1,4 @@
-export type Role = 'student' | 'teacher';
+export type Role = "student" | "teacher";
 
 export type Profile = {
   name: string;
@@ -29,7 +29,7 @@ export type ClassItem = {
   grade: number;
   medium: string;
   fee: number;
-  mode: 'online' | 'in-person';
+  mode: "online" | "in-person";
   location: string;
   latitude: number;
   longitude: number;
@@ -40,6 +40,7 @@ export type ClassItem = {
   enrolledCount: number;
   trialDate: string;
   active: boolean;
+  deleted?: true;
 };
 
 export type RequestItem = {
@@ -49,8 +50,8 @@ export type RequestItem = {
   teacherId: string;
   classId: string;
   classTitle: string;
-  kind: 'trial' | 'enrollment' | 'waitlist';
-  status: 'pending' | 'approved' | 'declined';
+  kind: "trial" | "enrollment" | "waitlist";
+  status: "pending" | "approved" | "declined";
   needs: string;
   sessionDate: string;
 };
@@ -65,6 +66,7 @@ export type Enrollment = {
 };
 
 export type Notice = {
+  classId?: string;
   id: string;
   userId: string;
   message: string;

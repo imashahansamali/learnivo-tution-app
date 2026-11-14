@@ -11,8 +11,9 @@ import {
   setDoc,
   updateDoc,
   where,
-} from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+} from "firebase/firestore";
+
+import { auth, db } from "../config/firebase";
 import type {
   ClassItem,
   Enrollment,
@@ -20,171 +21,148 @@ import type {
   Preferences,
   Profile,
   RequestItem,
-} from '../types';
+} from "../types";
 
-function currentUid() {
-  if (!auth.currentUser) {
-    throw Error('Please sign in.');
-  }
-
+function uid() {
+  if (!auth.currentUser) throw new Error("Please sign in.");
   return auth.currentUser.uid;
 }
 
 export function watch<T>(
   name: string,
   filters: [string, string][],
-  onData: (items: T[]) => void,
-  onError: (message: string) => void
+  ok: (items: T[]) => void,
+  fail: (message: string) => void,
 ) {
-  const request = query(
+  const collectionQuery = query(
     collection(db, name),
-    ...filters.map(([field, value]) =>
-      where(field, '==', value)
-    )
+    ...filters.map(([field, value]) => where(field, "==", value)),
   );
 
   return onSnapshot(
-    request,
-    snapshot => {
-      const items = snapshot.docs.map(
-        item =>
-          ({
-            id: item.id,
-            ...item.data(),
-          }) as T
-      );
-
-      onData(items);
+    collectionQuery,
+    (snapshot) => {
+      ok(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as T));
     },
-    error => onError(error.message)
+    (error) => fail(error.message),
   );
 }
 
-export function saveProfile(profile: Profile) {
-  return setDoc(
-    doc(db, 'users', currentUid()),
-    profile
-  );
-}
+export const saveProfile = (profile: Profile) =>
+  setDoc(doc(db, "users", uid()), profile);
 
-export function savePreferences(preferences: Preferences) {
-  return setDoc(
-    doc(db, 'preferences', currentUid()),
-    preferences
-  );
-}
+export const savePreferences = (preferences: Preferences) =>
+  setDoc(doc(db, "preferences", uid()), preferences);
 
 export async function loadPreferences() {
-  const snapshot = await getDoc(
-    doc(db, 'preferences', currentUid())
-  );
-
-  return snapshot.exists()
-    ? (snapshot.data() as Preferences)
-    : null;
+  const snapshot = await getDoc(doc(db, "preferences", uid()));
+  return snapshot.exists() ? (snapshot.data() as Preferences) : null;
 }
 
 export async function loadClass(id: string) {
-  const snapshot = await getDoc(
-    doc(db, 'classes', id)
-  );
+  const snapshot = await getDoc(doc(db, "classes", id));
 
-  if (!snapshot.exists()) {
-    throw Error('Class not found.');
-  }
+  if (!snapshot.exists()) throw new Error("Class not found.");
 
-  return {
-    id: snapshot.id,
-    ...snapshot.data(),
-  } as ClassItem;
+  return { id: snapshot.id, ...snapshot.data() } as ClassItem;
 }
 
 export async function enrolledClasses() {
   const snapshot = await getDocs(
-    query(
-      collection(db, 'enrollments'),
-      where('studentId', '==', currentUid())
-    )
+    query(collection(db, "enrollments"), where("studentId", "==", uid())),
   );
 
-  return Promise.all(
-    snapshot.docs.map(item =>
-      loadClass(item.data().classId)
-    )
+  const classes = await Promise.all(
+    snapshot.docs.map((enrollment) => loadClass(enrollment.data().classId)),
   );
+
+  return classes.filter((item) => !item.deleted);
 }
 
 export async function saveClass(
-  item: Omit<ClassItem, 'id' | 'enrolledCount'>,
-  id?: string
+  item: Omit<ClassItem, "id" | "enrolledCount" | "deleted">,
+  id?: string,
 ) {
   if (id) {
     const { teacherId, teacherName, ...changes } = item;
-
-    await updateDoc(
-      doc(db, 'classes', id),
-      changes
-    );
+    await updateDoc(doc(db, "classes", id), changes);
   } else {
-    await addDoc(
-      collection(db, 'classes'),
-      {
-        ...item,
-        enrolledCount: 0,
-      }
-    );
+    await addDoc(collection(db, "classes"), { ...item, enrolledCount: 0 });
   }
+}
+
+export const deleteClass = (id: string) =>
+  updateDoc(doc(db, "classes", id), { active: false, deleted: true });
+
+export async function removeEnrollment(id: string) {
+  const teacherId = uid();
+
+  await runTransaction(db, async (transaction) => {
+    const enrollmentRef = doc(db, "enrollments", id);
+    const enrollmentSnapshot = await transaction.get(enrollmentRef);
+
+    if (!enrollmentSnapshot.exists()) return;
+
+    const enrollment = enrollmentSnapshot.data();
+    const classRef = doc(db, "classes", enrollment.classId);
+    const classSnapshot = await transaction.get(classRef);
+    const classData = classSnapshot.data();
+
+    if (
+      enrollment.teacherId !== teacherId ||
+      classData?.teacherId !== teacherId
+    ) {
+      throw new Error("Only the class owner can remove this enrollment.");
+    }
+
+    const count = classData.enrolledCount;
+
+    if (!Number.isInteger(count) || count < 1) {
+      throw new Error("The class enrollment count is invalid.");
+    }
+
+    transaction.update(classRef, {
+      enrolledCount: count - 1,
+      lastRemovalId: id,
+    });
+    transaction.delete(enrollmentRef);
+  });
 }
 
 export async function requestClass(
   item: ClassItem,
-  kind: RequestItem['kind'],
+  kind: RequestItem["kind"],
   profile: Profile,
-  needs: string
+  needs: string,
 ) {
-  const studentId = currentUid();
+  const studentId = uid();
   const requestId = `${item.id}_${studentId}_${kind}`;
 
-  await runTransaction(db, async transaction => {
-    const classRef = doc(db, 'classes', item.id);
-    const requestRef = doc(db, 'requests', requestId);
-    const enrollmentRef = doc(
-      db,
-      'enrollments',
-      `${item.id}_${studentId}`
-    );
+  await runTransaction(db, async (transaction) => {
+    const classRef = doc(db, "classes", item.id);
+    const requestRef = doc(db, "requests", requestId);
+    const enrollmentRef = doc(db, "enrollments", `${item.id}_${studentId}`);
 
-    const [classSnapshot, previous, enrollment] =
-      await Promise.all([
-        transaction.get(classRef),
-        transaction.get(requestRef),
-        transaction.get(enrollmentRef),
-      ]);
+    const [liveClass, priorRequest, enrollment] = await Promise.all([
+      transaction.get(classRef),
+      transaction.get(requestRef),
+      transaction.get(enrollmentRef),
+    ]);
 
-    if (
-      !classSnapshot.exists() ||
-      !classSnapshot.data().active
-    ) {
-      throw Error('Class is closed.');
+    if (!liveClass.exists() || !liveClass.data().active) {
+      throw new Error("Class is closed.");
     }
-
-    if (previous.exists()) {
-      throw Error(
-        'You already sent this request. Check My activity.'
-      );
+    if (priorRequest.exists()) {
+      throw new Error("You already sent this request. Check My activity.");
     }
-
     if (enrollment.exists()) {
-      throw Error('You are already enrolled.');
+      throw new Error("You are already enrolled.");
     }
 
-    const currentClass = classSnapshot.data();
+    const { enrolledCount, capacity } = liveClass.data();
 
-    if (
-      kind !== 'waitlist' &&
-      currentClass.enrolledCount >= currentClass.capacity
-    ) {
-      throw Error('Class is full. Join the waitlist.');
+    if (kind !== "waitlist" && enrolledCount >= capacity) {
+      throw new Error("Class is full. Join the waitlist.");
     }
 
     transaction.set(requestRef, {
@@ -194,109 +172,98 @@ export async function requestClass(
       classId: item.id,
       classTitle: item.title,
       kind,
-      status: 'pending',
+      status: "pending",
       needs,
-      sessionDate: kind === 'trial' ? item.trialDate : '',
+      sessionDate: kind === "trial" ? item.trialDate : "",
       createdAt: serverTimestamp(),
     });
   });
 }
 
-export async function reviewRequest(
-  item: RequestItem,
-  approve: boolean
-) {
-  const teacherId = currentUid();
+export async function reviewRequest(request: RequestItem, approve: boolean) {
+  const teacherId = uid();
 
-  await runTransaction(db, async transaction => {
-    const requestRef = doc(db, 'requests', item.id);
-    const classRef = doc(db, 'classes', item.classId);
+  await runTransaction(db, async (transaction) => {
+    const requestRef = doc(db, "requests", request.id);
+    const classRef = doc(db, "classes", request.classId);
     const enrollmentRef = doc(
       db,
-      'enrollments',
-      `${item.classId}_${item.studentId}`
+      "enrollments",
+      `${request.classId}_${request.studentId}`,
     );
 
-    const [requestSnapshot, classSnapshot, enrollment] =
-      await Promise.all([
-        transaction.get(requestRef),
-        transaction.get(classRef),
-        transaction.get(enrollmentRef),
-      ]);
+    const [liveRequest, liveClass, enrollment] = await Promise.all([
+      transaction.get(requestRef),
+      transaction.get(classRef),
+      transaction.get(enrollmentRef),
+    ]);
 
     if (
-      !requestSnapshot.exists() ||
-      !classSnapshot.exists() ||
-      requestSnapshot.data().teacherId !== teacherId ||
-      requestSnapshot.data().status !== 'pending'
+      !liveRequest.exists() ||
+      !liveClass.exists() ||
+      liveRequest.data().teacherId !== teacherId ||
+      liveRequest.data().status !== "pending"
     ) {
-      throw Error('This request cannot be reviewed.');
+      throw new Error("This request cannot be reviewed.");
     }
 
-    if (item.kind === 'waitlist' && approve) {
-      throw Error(
-        'Waitlist entries are informational. Contact the student when a place opens.'
+    const classData = liveClass.data();
+
+    if (approve && classData.deleted) {
+      throw new Error("This class was deleted.");
+    }
+
+    if (approve && request.kind === "waitlist") {
+      throw new Error(
+        "Waitlist entries are informational. Contact the student when a place opens.",
       );
     }
 
-    if (approve && item.kind === 'enrollment') {
-      if (enrollment.exists()) {
-        throw Error('Student already enrolled.');
-      }
+    if (approve && request.kind === "enrollment") {
+      if (enrollment.exists()) throw new Error("Student already enrolled.");
 
-      const currentClass = classSnapshot.data();
+      const { active, enrolledCount, capacity } = classData;
 
-      if (
-        !currentClass.active ||
-        currentClass.enrolledCount >= currentClass.capacity
-      ) {
-        throw Error('No seats available.');
+      if (!active || enrolledCount >= capacity) {
+        throw new Error("No seats available.");
       }
 
       transaction.set(enrollmentRef, {
-        studentId: item.studentId,
-        studentName: item.studentName,
-        classId: item.classId,
+        studentId: request.studentId,
+        studentName: request.studentName,
+        classId: request.classId,
         teacherId,
-        classTitle: item.classTitle,
+        classTitle: request.classTitle,
         joinedAt: serverTimestamp(),
       });
 
       transaction.update(classRef, {
-        enrolledCount: currentClass.enrolledCount + 1,
+        enrolledCount: enrolledCount + 1,
         lastEnrollmentId: enrollmentRef.id,
       });
     }
 
-    const status = approve ? 'approved' : 'declined';
+    const status = approve ? "approved" : "declined";
 
     transaction.update(requestRef, {
       status,
       reviewedAt: serverTimestamp(),
     });
 
-    transaction.set(
-      doc(db, 'notifications', item.id),
-      {
-        userId: item.studentId,
-        teacherId,
-        classId: item.classId,
-        requestId: item.id,
-        message:
-          `${item.classTitle}: ${item.kind} request ${status}.`,
-        read: false,
-        createdAt: serverTimestamp(),
-      }
-    );
+    transaction.set(doc(db, "notifications", request.id), {
+      userId: request.studentId,
+      teacherId,
+      classId: request.classId,
+      requestId: request.id,
+      message: `${request.classTitle}: ${request.kind} request ${status}.`,
+      read: false,
+      createdAt: serverTimestamp(),
+    });
   });
 }
 
-export function markRead(id: string) {
-  return updateDoc(
-    doc(db, 'notifications', id),
-    { read: true }
-  );
-}
+export const markRead = (id: string) =>
+  updateDoc(doc(db, "notifications", id), { read: true });
 
 export type {
   ClassItem,

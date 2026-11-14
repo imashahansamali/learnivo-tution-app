@@ -2,7 +2,6 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function signed() {
       return request.auth != null;
     }
@@ -13,22 +12,16 @@ service cloud.firestore {
 
     function teacher() {
       return signed()
-        && get(
-          /databases/$(database)/documents/users/$(me())
-        ).data.role == 'teacher';
+        && get(/databases/$(database)/documents/users/$(me())).data.role == 'teacher';
     }
 
     function student() {
       return signed()
-        && get(
-          /databases/$(database)/documents/users/$(me())
-        ).data.role == 'student';
+        && get(/databases/$(database)/documents/users/$(me())).data.role == 'student';
     }
 
     function cls(id) {
-      return get(
-        /databases/$(database)/documents/classes/$(id)
-      ).data;
+      return get(/databases/$(database)/documents/classes/$(id)).data;
     }
 
     function ownClass(id) {
@@ -39,30 +32,21 @@ service cloud.firestore {
       return status in ['approved', 'declined'];
     }
 
-    function validProfile(data) {
-      return data.keys().hasOnly([
-          'name', 'phone', 'grade', 'role'
-        ])
-        && data.name is string
-        && data.name.size() > 0
-        && data.name.size() <= 100
-        && data.phone is string
-        && data.phone.matches('0[0-9]{9}')
-        && data.grade is int
-        && data.grade >= 1
-        && data.grade <= 13;
+    function validProfile(d) {
+      return d.keys().hasOnly(['name', 'phone', 'grade', 'role'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 100
+        && d.phone is string && d.phone.matches('0[0-9]{9}')
+        && d.grade is int && d.grade >= 1 && d.grade <= 13;
     }
 
     match /users/{id} {
       allow read: if signed() && id == me();
 
-      allow create: if signed()
-        && id == me()
+      allow create: if signed() && id == me()
         && validProfile(request.resource.data)
         && request.resource.data.role == 'student';
 
-      allow update: if signed()
-        && id == me()
+      allow update: if signed() && id == me()
         && validProfile(request.resource.data)
         && request.resource.data.role == resource.data.role;
     }
@@ -70,12 +54,10 @@ service cloud.firestore {
     match /preferences/{id} {
       allow read: if signed() && id == me();
 
-      allow create, update: if student()
-        && id == me()
+      allow create, update: if student() && id == me()
         && request.resource.data.keys().hasOnly([
-          'subject', 'medium', 'budget',
-          'latitude', 'longitude', 'radiusKm',
-          'day', 'start', 'end', 'needs'
+          'subject', 'medium', 'budget', 'latitude', 'longitude',
+          'radiusKm', 'day', 'start', 'end', 'needs'
         ])
         && request.resource.data.subject is string
         && request.resource.data.subject.size() > 0
@@ -99,77 +81,62 @@ service cloud.firestore {
         && request.resource.data.start >= 0
         && request.resource.data.end is int
         && request.resource.data.end <= 1439
-        && request.resource.data.end >
-          request.resource.data.start
+        && request.resource.data.end > request.resource.data.start
         && request.resource.data.needs is string
         && request.resource.data.needs.size() <= 2000;
     }
 
-    function validClass(data) {
-      return data.keys().hasOnly([
-          'teacherId', 'teacherName', 'title',
-          'subject', 'grade', 'medium', 'fee',
-          'mode', 'location', 'latitude', 'longitude',
-          'day', 'start', 'end', 'capacity',
-          'enrolledCount', 'trialDate', 'active',
-          'lastEnrollmentId'
-        ])
-        && data.teacherName is string
-        && data.teacherName.size() > 0
-        && data.title is string
-        && data.title.size() > 0
-        && data.title.size() <= 150
-        && data.subject is string
-        && data.subject.size() > 0
-        && data.medium is string
-        && data.medium.size() > 0
-        && data.grade is int
-        && data.grade >= 1
-        && data.grade <= 13
-        && data.fee is number
-        && data.fee >= 0
-        && data.mode in ['online', 'in-person']
-        && data.location is string
-        && data.location.size() > 0
-        && data.latitude is number
-        && data.latitude >= -90
-        && data.latitude <= 90
-        && data.longitude is number
-        && data.longitude >= -180
-        && data.longitude <= 180
-        && data.day is int
-        && data.day >= 0
-        && data.day <= 6
-        && data.start is int
-        && data.start >= 0
-        && data.end is int
-        && data.end <= 1439
-        && data.end > data.start
-        && data.capacity is int
-        && data.capacity >= 1
-        && data.capacity <= 500
-        && data.enrolledCount is int
-        && data.enrolledCount >= 0
-        && data.capacity >= data.enrolledCount
-        && data.trialDate is string
-        && data.active is bool;
+    function validClass(d) {
+      return d.keys().hasOnly([
+        'teacherId', 'teacherName', 'title', 'subject', 'grade',
+        'medium', 'fee', 'mode', 'location', 'latitude', 'longitude',
+        'day', 'start', 'end', 'capacity', 'enrolledCount',
+        'trialDate', 'active', 'lastEnrollmentId', 'lastRemovalId'
+      ])
+        && d.teacherName is string && d.teacherName.size() > 0
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 150
+        && d.subject is string && d.subject.size() > 0
+        && d.medium is string && d.medium.size() > 0
+        && d.grade is int && d.grade >= 1 && d.grade <= 13
+        && d.fee is number && d.fee >= 0
+        && d.mode in ['online', 'in-person']
+        && d.location is string && d.location.size() > 0
+        && d.latitude is number && d.latitude >= -90 && d.latitude <= 90
+        && d.longitude is number && d.longitude >= -180 && d.longitude <= 180
+        && d.day is int && d.day >= 0 && d.day <= 6
+        && d.start is int && d.start >= 0
+        && d.end is int && d.end <= 1439 && d.end > d.start
+        && d.capacity is int && d.capacity >= 1 && d.capacity <= 500
+        && d.enrolledCount is int && d.enrolledCount >= 0
+        && d.capacity >= d.enrolledCount
+        && d.trialDate is string && d.active is bool;
     }
 
-    function validCountIncrease(classId, data) {
-      let enrollmentId = data.lastEnrollmentId;
-      let enrollmentPath =
-        /databases/$(database)/documents/enrollments/$(enrollmentId);
+    function validCountIncrease(classId, d) {
+      let enrollmentId = d.lastEnrollmentId;
+      let enrollmentPath = /databases/$(database)/documents/enrollments/$(enrollmentId);
       let enrollment = getAfter(enrollmentPath).data;
 
       return resource.data.active
-        && data.enrolledCount ==
-          resource.data.enrolledCount + 1
-        && data.diff(resource.data).affectedKeys().hasOnly([
-          'enrolledCount', 'lastEnrollmentId'
-        ])
+        && d.enrolledCount == resource.data.enrolledCount + 1
+        && d.diff(resource.data).affectedKeys()
+          .hasOnly(['enrolledCount', 'lastEnrollmentId'])
         && !exists(enrollmentPath)
         && enrollment.classId == classId
         && enrollment.teacherId == me();
+    }
+
+    function validCountDecrease(classId, d) {
+      let enrollmentPath = /databases/$(database)/documents/enrollments/$(d.lastRemovalId);
+      let enrollment = get(enrollmentPath).data;
+
+      return enrollment.classId == classId
+        && enrollment.teacherId == me()
+        && d.enrolledCount >= 0
+        && d.enrolledCount == resource.data.enrolledCount - 1
+        && d.diff(resource.data).affectedKeys()
+          .hasOnly(['enrolledCount', 'lastRemovalId'])
+        && !existsAfter(enrollmentPath);
     }
 
     match /classes/{id} {
@@ -179,212 +146,184 @@ service cloud.firestore {
         && request.resource.data.teacherId == me()
         && validClass(request.resource.data)
         && request.resource.data.enrolledCount == 0
-        && !('lastEnrollmentId' in request.resource.data)
-        && request.resource.data.teacherName ==
-          get(
-            /databases/$(database)/documents/users/$(me())
-          ).data.name;
+        && !request.resource.data.keys().hasAny(['lastEnrollmentId', 'lastRemovalId'])
+        && request.resource.data.teacherName
+          == get(/databases/$(database)/documents/users/$(me())).data.name;
+
+      allow update: if teacher()
+        && resource.data.teacherId == me()
+        && request.resource.data.active == false
+        && request.resource.data.deleted == true
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['active', 'deleted']);
+
+      allow update: if teacher()
+        && resource.data.teacherId == me()
+        && validCountDecrease(id, request.resource.data);
 
       allow update: if teacher()
         && resource.data.teacherId == me()
         && validClass(request.resource.data)
-        && request.resource.data.teacherId ==
-          resource.data.teacherId
-        && request.resource.data.teacherName ==
-          resource.data.teacherName
+        && !('deleted' in resource.data)
+        && request.resource.data.teacherId == resource.data.teacherId
+        && request.resource.data.teacherName == resource.data.teacherName
         && (
           (
-            request.resource.data.enrolledCount ==
-              resource.data.enrolledCount
-            && !request.resource.data.diff(
-              resource.data
-            ).affectedKeys().hasAny([
-              'lastEnrollmentId'
-            ])
+            request.resource.data.enrolledCount == resource.data.enrolledCount
+            && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['lastEnrollmentId', 'lastRemovalId'])
           )
           || validCountIncrease(id, request.resource.data)
         );
     }
 
-    function validNewRequest(id, data) {
-      let selectedClass = cls(data.classId);
+    function validNewRequest(id, d) {
+      let c = cls(d.classId);
 
       return student()
-        && data.keys().hasOnly([
-          'studentId', 'studentName', 'teacherId',
-          'classId', 'classTitle', 'kind', 'status',
-          'needs', 'sessionDate', 'createdAt'
+        && d.keys().hasOnly([
+          'studentId', 'studentName', 'teacherId', 'classId', 'classTitle',
+          'kind', 'status', 'needs', 'sessionDate', 'createdAt'
         ])
-        && data.studentId == me()
-        && data.studentName ==
-          get(
-            /databases/$(database)/documents/users/$(me())
-          ).data.name
-        && data.kind in ['trial', 'enrollment', 'waitlist']
-        && id == data.classId + '_' + me() + '_' + data.kind
-        && data.teacherId == selectedClass.teacherId
-        && data.classTitle == selectedClass.title
-        && selectedClass.active
-        && data.status == 'pending'
-        && data.createdAt == request.time
-        && data.needs is string
-        && data.needs.size() <= 2000
-        && !exists(
-          /databases/$(database)/documents/enrollments/$(data.classId + '_' + me())
-        )
+        && d.studentId == me()
+        && d.studentName == get(/databases/$(database)/documents/users/$(me())).data.name
+        && d.kind in ['trial', 'enrollment', 'waitlist']
+        && id == d.classId + '_' + me() + '_' + d.kind
+        && d.teacherId == c.teacherId && d.classTitle == c.title && c.active
+        && d.status == 'pending' && d.createdAt == request.time
+        && d.needs is string && d.needs.size() <= 2000
+        && !exists(/databases/$(database)/documents/enrollments/$(d.classId + '_' + me()))
+        && (d.kind == 'waitlist' || c.enrolledCount < c.capacity)
         && (
-          data.kind == 'waitlist'
-          || selectedClass.enrolledCount <
-            selectedClass.capacity
-        )
-        && (
-          data.kind == 'trial'
-            ? data.sessionDate == selectedClass.trialDate
-              && selectedClass.trialDate.size() > 0
-            : data.sessionDate == ''
+          d.kind == 'trial'
+            ? d.sessionDate == c.trialDate && c.trialDate.size() > 0
+            : d.sessionDate == ''
         );
     }
 
-    function validReview(id, data) {
-      let enrollmentId =
-        resource.data.classId + '_' + resource.data.studentId;
-      let enrollmentPath =
-        /databases/$(database)/documents/enrollments/$(enrollmentId);
+    function validReview(id, d) {
+      let enrollmentId = resource.data.classId + '_' + resource.data.studentId;
+      let enrollmentPath = /databases/$(database)/documents/enrollments/$(enrollmentId);
 
       return ownClass(resource.data.classId)
         && resource.data.teacherId == me()
         && resource.data.status == 'pending'
-        && statusValid(data.status)
-        && data.reviewedAt == request.time
-        && data.diff(resource.data).affectedKeys().hasOnly([
-          'status', 'reviewedAt'
-        ])
+        && statusValid(d.status)
+        && d.reviewedAt == request.time
+        && d.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt'])
         && (
-          data.status == 'declined'
-          || resource.data.kind == 'trial'
+          d.status == 'declined'
+          || (
+            resource.data.kind == 'trial'
+            && !('deleted' in getAfter(
+              /databases/$(database)/documents/classes/$(resource.data.classId)
+            ).data)
+          )
           || (
             resource.data.kind == 'enrollment'
             && !exists(enrollmentPath)
-            && getAfter(enrollmentPath).data.classId ==
-              resource.data.classId
-            && getAfter(enrollmentPath).data.studentId ==
-              resource.data.studentId
+            && getAfter(enrollmentPath).data.classId == resource.data.classId
+            && getAfter(enrollmentPath).data.studentId == resource.data.studentId
           )
         );
     }
 
     match /requests/{id} {
-      allow get: if signed()
-        && (
-          !exists(
-            /databases/$(database)/documents/requests/$(id)
-          )
-          || resource.data.studentId == me()
-          || resource.data.teacherId == me()
-        );
+      allow get: if signed() && (
+        !exists(/databases/$(database)/documents/requests/$(id))
+        || resource.data.studentId == me()
+        || resource.data.teacherId == me()
+      );
 
       allow list: if signed()
-        && (
-          resource.data.studentId == me()
-          || resource.data.teacherId == me()
-        );
+        && (resource.data.studentId == me() || resource.data.teacherId == me());
 
-      allow create: if signed()
-        && validNewRequest(id, request.resource.data);
-
-      allow update: if signed()
-        && validReview(id, request.resource.data);
-    }
-
-    function validEnrollment(id, data) {
-      let classPath =
-        /databases/$(database)/documents/classes/$(data.classId);
-      let before = get(classPath).data;
-      let after = getAfter(classPath).data;
-
-      let requestId =
-        data.classId + '_' + data.studentId + '_enrollment';
-      let requestPath =
-        /databases/$(database)/documents/requests/$(requestId);
-      let enrollmentRequest = get(requestPath).data;
-
-      return ownClass(data.classId)
-        && data.keys().hasOnly([
-          'studentId', 'studentName', 'classId',
-          'teacherId', 'classTitle', 'joinedAt'
-        ])
-        && id == data.classId + '_' + data.studentId
-        && data.teacherId == me()
-        && data.classTitle == before.title
-        && data.joinedAt == request.time
-        && before.active
-        && before.enrolledCount < before.capacity
-        && after.enrolledCount == before.enrolledCount + 1
-        && after.lastEnrollmentId == id
-        && enrollmentRequest.status == 'pending'
-        && enrollmentRequest.kind == 'enrollment'
-        && enrollmentRequest.studentId == data.studentId
-        && enrollmentRequest.studentName == data.studentName
-        && getAfter(requestPath).data.status == 'approved';
+      allow create: if signed() && validNewRequest(id, request.resource.data);
+      allow update: if signed() && validReview(id, request.resource.data);
     }
 
     match /enrollments/{id} {
-      allow get: if signed()
-        && (
-          !exists(
-            /databases/$(database)/documents/enrollments/$(id)
-          )
-          || resource.data.studentId == me()
-          || resource.data.teacherId == me()
-        );
+      allow get: if signed() && (
+        !exists(/databases/$(database)/documents/enrollments/$(id))
+        || resource.data.studentId == me()
+        || resource.data.teacherId == me()
+      );
 
       allow list: if signed()
-        && (
-          resource.data.studentId == me()
-          || resource.data.teacherId == me()
-        );
+        && (resource.data.studentId == me() || resource.data.teacherId == me());
 
-      allow create: if signed()
-        && validEnrollment(id, request.resource.data);
+      allow create: if signed() && validEnrollment(id, request.resource.data);
+      allow delete: if validEnrollmentRemoval(id, resource.data);
     }
 
-    function validNotice(id, data) {
-      let requestPath =
-        /databases/$(database)/documents/requests/$(id);
-      let before = get(requestPath).data;
-      let after = getAfter(requestPath).data;
+    function validEnrollmentRemoval(id, d) {
+      let classPath = /databases/$(database)/documents/classes/$(d.classId);
+      let updatedClass = getAfter(classPath).data;
 
-      return ownClass(data.classId)
-        && data.keys().hasOnly([
-          'userId', 'teacherId', 'classId',
-          'requestId', 'message', 'read', 'createdAt'
+      return ownClass(d.classId)
+        && d.teacherId == me()
+        && updatedClass.lastRemovalId == id
+        && updatedClass.enrolledCount >= 0
+        && updatedClass.enrolledCount == get(classPath).data.enrolledCount - 1;
+    }
+
+    function validEnrollment(id, d) {
+      let classPath = /databases/$(database)/documents/classes/$(d.classId);
+      let currentClass = get(classPath).data;
+      let updatedClass = getAfter(classPath).data;
+      let requestId = d.classId + '_' + d.studentId + '_enrollment';
+      let requestPath = /databases/$(database)/documents/requests/$(requestId);
+      let currentRequest = get(requestPath).data;
+
+      return ownClass(d.classId)
+        && d.keys().hasOnly([
+          'studentId', 'studentName', 'classId',
+          'teacherId', 'classTitle', 'joinedAt'
         ])
-        && data.teacherId == me()
-        && data.requestId == id
-        && data.classId == before.classId
-        && data.userId == before.studentId
-        && before.status == 'pending'
-        && statusValid(after.status)
-        && data.read == false
-        && data.createdAt == request.time
-        && data.message ==
-          before.classTitle + ': ' + before.kind
-          + ' request ' + after.status + '.';
+        && id == d.classId + '_' + d.studentId
+        && d.teacherId == me()
+        && d.classTitle == currentClass.title
+        && d.joinedAt == request.time
+        && currentClass.active && currentClass.enrolledCount < currentClass.capacity
+        && updatedClass.enrolledCount == currentClass.enrolledCount + 1
+        && updatedClass.lastEnrollmentId == id
+        && currentRequest.status == 'pending'
+        && currentRequest.kind == 'enrollment'
+        && currentRequest.studentId == d.studentId
+        && currentRequest.studentName == d.studentName
+        && getAfter(requestPath).data.status == 'approved';
     }
 
     match /notifications/{id} {
-      allow read: if signed()
-        && resource.data.userId == me();
-
-      allow create: if signed()
-        && validNotice(id, request.resource.data);
+      allow read: if signed() && resource.data.userId == me();
+      allow create: if signed() && validNotice(id, request.resource.data);
 
       allow update: if signed()
         && resource.data.userId == me()
         && request.resource.data.read == true
-        && request.resource.data.diff(
-          resource.data
-        ).affectedKeys().hasOnly(['read']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+    }
+
+    function validNotice(id, d) {
+      let requestPath = /databases/$(database)/documents/requests/$(id);
+      let previousRequest = get(requestPath).data;
+      let updatedRequest = getAfter(requestPath).data;
+
+      return ownClass(d.classId)
+        && d.keys().hasOnly([
+          'userId', 'teacherId', 'classId', 'requestId',
+          'message', 'read', 'createdAt'
+        ])
+        && d.teacherId == me()
+        && d.requestId == id
+        && d.classId == previousRequest.classId
+        && d.userId == previousRequest.studentId
+        && previousRequest.status == 'pending'
+        && statusValid(updatedRequest.status)
+        && d.read == false
+        && d.createdAt == request.time
+        && d.message == previousRequest.classTitle + ': ' + previousRequest.kind
+          + ' request ' + updatedRequest.status + '.';
     }
   }
 }
