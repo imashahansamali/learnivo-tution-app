@@ -1,61 +1,53 @@
-import React, { useCallback, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
-import { useAuth } from '../../context/AuthContext';
-import { useCollection } from '../../hooks/useCollection';
+import React, { useCallback, useState } from "react";
+import { Pressable, StyleSheet, Text } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+
+import { useAuth } from "../../context/AuthContext";
+import { useCollection } from "../../hooks/useCollection";
 import {
-  enrolledClasses,
-  loadPreferences,
-} from '../../services/data';
-import type {
   ClassItem,
   Preferences,
-} from '../../types';
+  loadPreferences,
+  enrolledClasses,
+} from "../../services/data";
+import { colors } from "../../theme/colors";
+import { getClassColor } from "../../utils/classColors";
+import { match, days, time } from "../../utils/matching";
 import {
-  days,
-  match,
-  time,
-} from '../../utils/matching';
-import {
-  Badge,
-  Body,
-  Button,
-  Card,
-  ErrorText,
-  Heading,
-  Loading,
   Screen,
-} from '../../components/UI';
+  Card,
+  Heading,
+  Body,
+  Badge,
+  Button,
+  ErrorText,
+  Loading,
+} from "../../components/UI";
 
-export default function MatchesScreen({
-  navigation,
-}: any) {
+export default function MatchesScreen({ navigation }: any) {
   const { profile } = useAuth();
-  const classesQuery = useCollection<ClassItem>('classes');
-
-  const [preferences, setPreferences] =
-    useState<Preferences | null>(null);
-  const [enrolled, setEnrolled] = useState<ClassItem[]>([]);
-  const [error, setError] = useState('');
+  const all = useCollection<ClassItem>("classes");
+  const [preferences, setPreferences] = useState<Preferences | null>(null);
+  const [existingClasses, setExistingClasses] = useState<ClassItem[]>([]);
+  const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [nearbyOnly, setNearbyOnly] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       setLoaded(false);
 
-      Promise.all([
-        loadPreferences(),
-        enrolledClasses(),
-      ])
-        .then(([savedPreferences, enrolledItems]) => {
-          if (!active) return;
-
-          setPreferences(savedPreferences);
-          setEnrolled(enrolledItems);
-          setError('');
+      Promise.all([loadPreferences(), enrolledClasses()])
+        .then(([savedPreferences, enrolled]) => {
+          if (active) {
+            setPreferences(savedPreferences);
+            setExistingClasses(enrolled);
+            setError("");
+          }
         })
-        .catch(err => {
-          if (active) setError(err.message);
+        .catch((error) => {
+          if (active) setError(error.message);
         })
         .finally(() => {
           if (active) setLoaded(true);
@@ -64,123 +56,157 @@ export default function MatchesScreen({
       return () => {
         active = false;
       };
-    }, [])
+    }, []),
   );
 
-  if (classesQuery.loading || !loaded) {
-    return <Loading />;
-  }
+  if (all.loading || !loaded) return <Loading />;
 
-  const results = classesQuery.items
+  const classes = all.items
     .filter(
-      item =>
+      (item) =>
         item.active &&
         item.grade === profile?.grade &&
         (!preferences ||
-          item.subject.toLowerCase() ===
-            preferences.subject.toLowerCase())
+          item.subject.toLowerCase() === preferences.subject.toLowerCase()),
     )
-    .map(item => ({
+    .map((item) => ({
       item,
-      matching: preferences
-        ? match(item, preferences, enrolled)
-        : null,
+      result: preferences ? match(item, preferences, existingClasses) : null,
     }))
-    .sort(
-      (a, b) =>
-        (b.matching?.score ?? 0) -
-        (a.matching?.score ?? 0)
-    );
+    .filter(({ item, result }) => {
+      if (!nearbyOnly || !preferences) return true;
+
+      return (
+        item.mode === "in-person" &&
+        result !== null &&
+        result.distance <= preferences.radiusKm
+      );
+    })
+    .sort((a, b) => (b.result?.score ?? 0) - (a.result?.score ?? 0));
 
   return (
     <Screen
       title="Your class matches"
-      subtitle="Discover classes that fit your learning needs."
+      subtitle="Matches explain how each class fits your preferences."
     >
       <Button
+        secondary
         title="Set learning preferences"
-        onPress={() => navigation.navigate('Preferences')}
+        onPress={() => navigation.navigate("Preferences")}
       />
-
       <Button
         secondary
         title="My activity"
-        onPress={() => navigation.navigate('Activity')}
+        onPress={() => navigation.navigate("Activity")}
       />
-
       <Button
         secondary
         title="My timetable"
-        onPress={() => navigation.navigate('Timetable')}
+        onPress={() => navigation.navigate("Timetable")}
       />
-
       <Button
         secondary
         title="Notifications"
-        onPress={() => navigation.navigate('Notifications')}
+        onPress={() => navigation.navigate("Notifications")}
       />
-
       <Button
         secondary
         title="Profile"
-        onPress={() => navigation.navigate('Profile')}
+        onPress={() => navigation.navigate("Profile")}
       />
 
-      <ErrorText message={classesQuery.error || error} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected: nearbyOnly && !!preferences }}
+        onPress={() => {
+          if (!preferences) {
+            navigation.navigate("Preferences");
+            return;
+          }
 
-      {!results.length && (
+          setNearbyOnly((current) => !current);
+        }}
+        style={({ pressed }) => [
+          styles.nearbyButton,
+          nearbyOnly && preferences && styles.nearbySelected,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Text style={styles.nearbyLabel}>
+          {nearbyOnly && preferences ? "Show all matches" : "Learnivo Nearby"}
+        </Text>
+      </Pressable>
+
+      <ErrorText message={all.error || error} />
+
+      {classes.length === 0 && (
         <Card>
           <Body>
-            No matching classes yet. Adjust your preferences
-            or ask a teacher to publish a class.
+            {nearbyOnly && preferences
+              ? `No in-person matches within ${preferences.radiusKm} km of your saved location.`
+              : "No matching classes yet. Ask a teacher to publish a class or adjust your preferences."}
           </Body>
         </Card>
       )}
 
-      {results.map(({ item, matching }) => (
-        <Card key={item.id}>
+      {classes.map(({ item, result }) => (
+        <Card key={item.id} backgroundColor={getClassColor(item.id)}>
           <Heading>{item.title}</Heading>
-
           <Body>
-            {`${item.teacherName} · ${item.medium}\n`}
-            {`${days[item.day]} ${time(item.start)}–${time(item.end)}\n`}
-            {`LKR ${item.fee.toLocaleString()} / month · ${item.mode}`}
+            {item.teacherName} · {item.medium}
+            {"\n"}
+            {days[item.day]} {time(item.start)}–{time(item.end)}
+            {"\n"}
+            LKR {item.fee.toLocaleString()} / month · {item.mode}
           </Body>
-
-          <Badge
-            warning={item.enrolledCount >= item.capacity}
-          >
+          <Badge warning={item.enrolledCount >= item.capacity}>
             {item.enrolledCount >= item.capacity
-              ? 'FULL'
+              ? "FULL"
               : `${item.capacity - item.enrolledCount} places left`}
           </Badge>
-
-          {matching && (
+          {result && (
             <>
               <Badge>
-                {matching.score}/4 preferences ·{' '}
-                {matching.reasons.join(' · ') ||
-                  'Consider other options'}
+                {result.score}/4 preferences ·{" "}
+                {result.reasons.join(" · ") || "Consider other options"}
               </Badge>
-
-              {matching.clash && (
-                <Badge warning>
-                  Timetable clash with an enrolled class
-                </Badge>
+              {result.clash && (
+                <Badge warning>Timetable clash with an enrolled class</Badge>
               )}
             </>
           )}
-
           <Button
             title="View class"
-            onPress={() =>
-              navigation.navigate('ClassDetails', {
-                id: item.id,
-              })
-            }
+            onPress={() => navigation.navigate("ClassDetails", { id: item.id })}
           />
         </Card>
       ))}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  nearbyButton: {
+    minHeight: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.secondary,
+  },
+  nearbySelected: {
+    borderColor: colors.primary,
+  },
+  pressed: {
+    opacity: 0.75,
+  },
+  nearbyLabel: {
+    color: colors.secondaryText,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+});

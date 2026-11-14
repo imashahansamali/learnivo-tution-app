@@ -1,76 +1,59 @@
-import React, { useCallback, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
-import { enrolledClasses } from '../../services/data';
-import type { ClassItem } from '../../types';
-import { days, time } from '../../utils/matching';
-import {
-  Body,
-  Card,
-  ErrorText,
-  Heading,
-  Screen,
-} from '../../components/UI';
-
+import { getClassColor } from "../../utils/classColors";
+import React, { useState, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { ClassItem, enrolledClasses } from "../../services/data";
+import { days, time } from "../../utils/matching";
+import { Screen, Card, Heading, Body, ErrorText } from "../../components/UI";
 export default function TimetableScreen() {
-  const [items, setItems] = useState<ClassItem[]>([]);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
-
+  const [items, I] = useState<ClassItem[]>([]),
+    [error, X] = useState(""),
+    [loading, L] = useState(true);
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      setLoading(true);
-
+      L(true);
       enrolledClasses()
-        .then(values => {
-          if (!active) return;
-
-          setItems(values);
-          setError('');
+        .then((x) => {
+          if (active) {
+            I(x);
+            X("");
+          }
         })
-        .catch(err => {
-          if (active) setError(err.message);
+        .catch((e) => {
+          if (active) X(e.message);
         })
         .finally(() => {
-          if (active) setLoading(false);
+          if (active) L(false);
         });
-
       return () => {
         active = false;
       };
-    }, [])
+    }, []),
   );
-
-  const sorted = [...items].sort(
-    (a, b) => a.day - b.day || a.start - b.start
-  );
-
   return (
     <Screen
       title="My timetable"
-      subtitle="Enrolled weekly classes. All times are Sri Lanka time."
+      subtitle="Your permanently enrolled weekly classes. All times are Sri Lanka time."
     >
       <ErrorText message={error} />
-
-      {loading && <Body>Loading…</Body>}
-
-      {!loading && !items.length && (
-        <Body>No enrolled classes yet.</Body>
+      {loading ? (
+        <Body>Loading…</Body>
+      ) : (
+        !items.length && <Body>No enrolled classes yet.</Body>
       )}
-
-      {sorted.map(item => (
-        <Card key={item.id}>
-          <Heading>
-            {days[item.day]} · {time(item.start)}–
-            {time(item.end)}
-          </Heading>
-
-          <Body>
-            {`${item.title}\n`}
-            {`${item.teacherName} · ${item.location}`}
-          </Body>
-        </Card>
-      ))}
+      {items
+        .sort((a, b) => a.day - b.day || a.start - b.start)
+        .map((c) => (
+          <Card key={c.id} backgroundColor={getClassColor(c.id)}>
+            <Heading>
+              {days[c.day]} · {time(c.start)}–{time(c.end)}
+            </Heading>
+            <Body>
+              {c.title}
+              {c.teacherName} · {c.location}
+            </Body>
+          </Card>
+        ))}
     </Screen>
   );
 }

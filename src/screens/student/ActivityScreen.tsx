@@ -1,62 +1,45 @@
-import React from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useCollection } from '../../hooks/useCollection';
-import type { RequestItem } from '../../types';
+import { getClassColor } from "../../utils/classColors";
+import React from "react";
+import { useAuth } from "../../context/AuthContext";
+import { useCollection } from "../../hooks/useCollection";
+import { RequestItem } from "../../types";
 import {
-  Badge,
-  Body,
-  Button,
-  Card,
-  ErrorText,
-  Heading,
-  Loading,
   Screen,
-} from '../../components/UI';
-
-export default function ActivityScreen({
-  navigation,
-}: any) {
+  Card,
+  Heading,
+  Body,
+  Badge,
+  Button,
+  ErrorText,
+  Loading,
+} from "../../components/UI";
+export default function ActivityScreen({ navigation: n }: any) {
   const { user } = useAuth();
-
-  const { items, error, loading } =
-    useCollection<RequestItem>('requests', [
-      ['studentId', user!.uid],
-    ]);
-
+  const { items, error, loading } = useCollection<RequestItem>("requests", [
+    ["studentId", user!.uid],
+  ]);
   if (loading) return <Loading />;
-
   return (
     <Screen
       title="My activity"
-      subtitle="Trial approval and permanent enrollment are separate."
+      subtitle="Trials and permanent enrollments are separate requests."
     >
       <ErrorText message={error} />
-
       {!items.length && <Body>No requests yet.</Body>}
-
-      {items.map(item => (
-        <Card key={item.id}>
-          <Heading>{item.classTitle}</Heading>
-
+      {items.map((r) => (
+        <Card key={r.id} backgroundColor={getClassColor(r.classId)}>
+          <Heading>{r.classTitle}</Heading>
           <Body>
-            {item.kind}
-            {item.sessionDate
-              ? ` · ${item.sessionDate}`
-              : ''}
+            {r.kind}
+            {r.sessionDate ? ` · ${r.sessionDate}` : ""}
           </Body>
-
-          <Badge warning={item.status !== 'approved'}>
-            {item.status.toUpperCase()}
+          <Badge warning={r.status !== "approved"}>
+            {r.status.toUpperCase()}
           </Badge>
-
           <Button
             secondary
             title="View class"
-            onPress={() =>
-              navigation.navigate('ClassDetails', {
-                id: item.classId,
-              })
-            }
+            onPress={() => n.navigate("ClassDetails", { id: r.classId })}
           />
         </Card>
       ))}

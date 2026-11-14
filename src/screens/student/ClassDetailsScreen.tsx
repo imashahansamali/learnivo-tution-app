@@ -1,104 +1,74 @@
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { getClassColor } from "../../utils/classColors";
+import React, { useEffect, useState } from "react";
+import { useAuth } from "../../context/AuthContext";
 import {
-  enrolledClasses,
+  ClassItem,
   loadClass,
+  enrolledClasses,
   loadPreferences,
   requestClass,
-} from '../../services/data';
-import type { ClassItem, RequestItem } from '../../types';
+} from "../../services/data";
+import { days, time, overlaps, dateValue } from "../../utils/matching";
 import {
-  dateValue,
-  days,
-  overlaps,
-  time,
-} from '../../utils/matching';
-import {
-  Badge,
-  Body,
-  Button,
-  Card,
-  ErrorText,
-  Heading,
-  Input,
-  Loading,
   Screen,
-} from '../../components/UI';
-
-export default function ClassDetailsScreen({
-  route,
-  navigation,
-}: any) {
+  Card,
+  Heading,
+  Body,
+  Badge,
+  Input,
+  Button,
+  ErrorText,
+  Loading,
+} from "../../components/UI";
+export default function ClassDetailsScreen({ route, navigation: n }: any) {
   const { profile } = useAuth();
-
-  const [item, setItem] = useState<ClassItem | null>(null);
-  const [clashes, setClashes] = useState<ClassItem[]>([]);
-  const [needs, setNeeds] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
+  const [c, C] = useState<ClassItem | null>(null),
+    [clashes, K] = useState<ClassItem[]>([]),
+    [needs, N] = useState(""),
+    [busy, B] = useState(false),
+    [error, X] = useState("");
   useEffect(() => {
     let active = true;
-
     Promise.all([
       loadClass(route.params.id),
       enrolledClasses(),
       loadPreferences(),
     ])
-      .then(([selected, enrolled, preferences]) => {
-        if (!active) return;
-
-        setItem(selected);
-        setNeeds(preferences?.needs || '');
-
-        setClashes(
-          enrolled.filter(
-            existing =>
-              existing.id !== selected.id &&
-              overlaps(selected, existing)
-          )
-        );
+      .then(([x, es, p]) => {
+        if (active) {
+          C(x);
+          K(es.filter((e) => e.id !== x.id && overlaps(x, e)));
+          N(p?.needs || "");
+        }
       })
-      .catch(err => {
-        if (active) setError(err.message);
-      });
-
+      .catch((e) => X(e.message));
     return () => {
       active = false;
     };
   }, [route.params.id]);
-
-  async function send(kind: RequestItem['kind']) {
-    if (!item || !profile) return;
-
-    setBusy(true);
-    setError('');
-
+  async function send(kind: "trial" | "enrollment" | "waitlist") {
+    if (!c || !profile) return;
+    B(true);
+    X("");
     try {
-      if (kind === 'trial') {
-        dateValue(item.trialDate);
-      }
-
-      await requestClass(item, kind, profile, needs);
-
-      navigation.navigate('Result', {
+      if (kind === "trial") dateValue(c.trialDate);
+      await requestClass(c, kind, profile, needs);
+      n.navigate("Result", {
+        classId: c.id,
         title:
-          kind === 'waitlist'
-            ? 'You are on the list'
-            : 'Request submitted',
+          kind === "waitlist" ? "You are on the list" : "Request submitted",
         message:
-          kind === 'waitlist'
-            ? 'Your waiting-list entry is saved. Check My activity for its status.'
-            : 'Your teacher will review your request. Check My activity for the result.',
+          kind === "waitlist"
+            ? "Your waiting-list entry is saved. Watch in-app notifications for updates."
+            : "Your teacher will review the request. Check My activity for the result.",
       });
-    } catch (err) {
-      setError((err as Error).message);
+    } catch (e) {
+      X((e as Error).message);
     } finally {
-      setBusy(false);
+      B(false);
     }
   }
-
-  if (!item) {
+  if (!c)
     return error ? (
       <Screen title="Class unavailable">
         <ErrorText message={error} />
@@ -106,94 +76,73 @@ export default function ClassDetailsScreen({
     ) : (
       <Loading />
     );
-  }
-
-  const full = item.enrolledCount >= item.capacity;
-
+  const full = c.enrolledCount >= c.capacity;
   return (
-    <Screen
-      title={item.title}
-      subtitle={item.teacherName}
-    >
-      <Card>
+    <Screen title={c.title} subtitle={c.teacherName}>
+      <Card backgroundColor={getClassColor(c.id)}>
         <Heading>
-          {item.subject} · Grade {item.grade}
+          {c.subject} · Grade {c.grade}
         </Heading>
-
         <Body>
-          {`${item.medium} medium · ${item.mode}\n`}
-          {`${item.location}\n`}
-          {`${days[item.day]} ${time(item.start)}–${time(item.end)}\n`}
-          {`LKR ${item.fee.toLocaleString()} / month`}
+          {c.medium} medium · {c.mode}
+          {c.location}
+          {days[c.day]} {time(c.start)}–{time(c.end)}
+          LKR {c.fee.toLocaleString()} / month
         </Body>
-
         <Badge warning={full}>
-          {full
-            ? 'Full'
-            : `${item.capacity - item.enrolledCount} places available`}
+          {full ? "Full" : `${c.capacity - c.enrolledCount} places available`}
         </Badge>
-
         <Body>
-          {`Trial date: ${item.trialDate || 'Not offered'}\n`}
+          Trial date: {c.trialDate || "Not offered"}
           Fees are arranged directly with the teacher.
         </Body>
       </Card>
-
-      {clashes.map(existing => (
-        <Card key={existing.id}>
+      {clashes.map((x) => (
+        <Card key={x.id} backgroundColor={getClassColor(x.id)}>
           <Badge warning>Time clash</Badge>
-
           <Body>
-            {existing.title}: {days[existing.day]}{' '}
-            {time(existing.start)}–{time(existing.end)}
+            {x.title}: {days[x.day]} {time(x.start)}–{time(x.end)}
           </Body>
-
           <Button
             secondary
             title="Find another class"
-            onPress={() => navigation.navigate('Matches')}
+            onPress={() => n.navigate("Matches")}
           />
         </Card>
       ))}
-
       <Input
         label="Tell your teacher what you need help with"
         value={needs}
-        onChangeText={setNeeds}
+        onChangeText={N}
         multiline
       />
-
       <ErrorText message={error} />
-
       {full ? (
         <Button
           title="Join waitlist"
           busy={busy}
-          disabled={!item.active}
-          onPress={() => send('waitlist')}
+          onPress={() => send("waitlist")}
         />
       ) : (
         <>
           <Button
             title="Request a trial"
             busy={busy}
-            disabled={!item.trialDate || !item.active}
-            onPress={() => send('trial')}
+            disabled={!c.trialDate || !c.active}
+            onPress={() => send("trial")}
           />
-
           <Button
             secondary
             title="Request permanent place"
-            disabled={busy || !item.active}
-            onPress={() => send('enrollment')}
+            disabled={busy || !c.active}
+            onPress={() => send("enrollment")}
           />
         </>
       )}
-
       <Button
         secondary
         title="View timetable"
-        onPress={() => navigation.navigate('Timetable')}
+        onPress={() => n.navigate("Timetable")}
       />
     </Screen>
   );
