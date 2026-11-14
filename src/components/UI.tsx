@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,89 +11,36 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import LearnivoIcon from "./LearnivoIcon";
 import { colors as c } from "../theme/colors";
 
-type ChildrenProps = {
-  children: React.ReactNode;
-};
-
-export type ButtonVariant =
-  | "primary"
-  | "secondary"
-  | "success"
-  | "info"
-  | "warning"
-  | "danger"
-  | "preferences";
-
-type ButtonPalette = {
-  background: string;
-  text: string;
-  border: string;
-};
-
-const secondaryPalette = {
-  background: c.secondary,
-  text: c.secondaryText,
-  border: c.border,
-};
-
-const buttonColors: Record<ButtonVariant, ButtonPalette> = {
-  primary: {
-    background: c.primary,
-    text: "#FFFFFF",
-    border: c.primary,
-  },
-  secondary: secondaryPalette,
-  preferences: secondaryPalette,
-  success: {
-    background: c.success,
-    text: "#FFFFFF",
-    border: c.success,
-  },
-  info: {
-    background: "#286A94",
-    text: "#FFFFFF",
-    border: "#286A94",
-  },
-  warning: {
-    background: c.warning,
-    text: "#FFFFFF",
-    border: c.warning,
-  },
-  danger: {
-    background: c.error,
-    text: "#FFFFFF",
-    border: c.error,
-  },
-};
+type ChildrenProps = { children: React.ReactNode };
 
 export function Screen({
   title,
   subtitle,
   children,
-}: ChildrenProps & {
-  title: string;
-  subtitle?: string;
-}) {
+}: ChildrenProps & { title: string; subtitle?: string }) {
   return (
-    <SafeAreaView style={styles.safe} edges={["bottom"]}>
+    <SafeAreaView style={s.safe} edges={["bottom"]}>
       <KeyboardAvoidingView
-        style={styles.safe}
+        style={s.safe}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.page}
+          contentContainerStyle={s.page}
         >
-          <View style={styles.intro}>
-            <Text style={styles.brand}>LEARNIVO</Text>
-            <Text accessibilityRole="header" style={styles.title}>
-              {title}
-            </Text>
-            {subtitle ? <Text style={styles.body}>{subtitle}</Text> : null}
+          <View style={s.brandRow}>
+            <LearnivoIcon />
+            <Text style={s.brand}>LEARNIVO</Text>
           </View>
+
+          <Text accessibilityRole="header" style={s.title}>
+            {title}
+          </Text>
+          {subtitle && <Text style={s.body}>{subtitle}</Text>}
           {children}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -104,127 +51,88 @@ export function Screen({
 export function Card({
   children,
   backgroundColor,
-}: ChildrenProps & {
-  backgroundColor?: string;
-}) {
+}: ChildrenProps & { backgroundColor?: string }) {
   return (
-    <View style={[styles.card, { backgroundColor: backgroundColor ?? c.card }]}>
+    <View
+      style={[
+        s.card,
+        backgroundColor
+          ? { borderLeftColor: backgroundColor, borderLeftWidth: 4 }
+          : undefined,
+      ]}
+    >
       {children}
     </View>
   );
 }
 
 export function Heading({ children }: ChildrenProps) {
-  return <Text style={styles.heading}>{children}</Text>;
+  return <Text style={s.heading}>{children}</Text>;
 }
 
 export function Body({ children }: ChildrenProps) {
-  return <Text style={styles.body}>{children}</Text>;
+  return <Text style={s.body}>{children}</Text>;
 }
 
 export function Badge({
   children,
   warning = false,
-}: ChildrenProps & {
-  warning?: boolean;
-}) {
+}: ChildrenProps & { warning?: boolean }) {
   return (
-    <View
-      style={[
-        styles.badge,
-        { backgroundColor: warning ? "#FFF3DF" : "#E6F4EC" },
-      ]}
-    >
-      <Text
-        style={[styles.badgeText, { color: warning ? c.warning : c.success }]}
-      >
-        {children}
-      </Text>
-    </View>
+    <Text style={[s.badge, { color: warning ? c.warning : c.success }]}>
+      {children}
+    </Text>
   );
 }
-
-type ButtonProps = {
-  title: string;
-  onPress: () => void;
-  variant?: ButtonVariant;
-  secondary?: boolean;
-  busy?: boolean;
-  disabled?: boolean;
-};
 
 export function Button({
   title,
   onPress,
-  variant = "primary",
   secondary = false,
   busy = false,
   disabled = false,
-}: ButtonProps) {
-  const unavailable = busy || disabled;
-  const palette = buttonColors[secondary ? "secondary" : variant];
-
+}: {
+  title: string;
+  onPress: () => void;
+  secondary?: boolean;
+  busy?: boolean;
+  disabled?: boolean;
+}) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
-      accessibilityState={{ disabled: unavailable, busy }}
-      disabled={unavailable}
+      accessibilityState={{ busy, disabled: busy || disabled }}
+      disabled={busy || disabled}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.button,
-        { backgroundColor: palette.background, borderColor: palette.border },
-        pressed && styles.pressedButton,
-        unavailable && styles.disabledButton,
+        s.button,
+        secondary && s.secondary,
+        (busy || disabled) && s.disabled,
+        pressed && s.pressed,
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={palette.text} />
+        <ActivityIndicator color={secondary ? c.secondaryText : "#FFFFFF"} />
       ) : (
-        <Text style={[styles.buttonText, { color: palette.text }]}>
-          {title}
-        </Text>
+        <Text style={[s.label, secondary && s.secondaryLabel]}>{title}</Text>
       )}
     </Pressable>
   );
 }
 
-type InputProps = React.ComponentProps<typeof TextInput> & {
-  label: string;
-};
-
 export function Input({
   label,
-  style,
-  onFocus,
-  onBlur,
   ...props
-}: InputProps) {
-  const [focused, setFocused] = useState(false);
-
+}: { label: string } & React.ComponentProps<typeof TextInput>) {
   return (
-    <View style={styles.field}>
-      <Text style={styles.inputLabel}>{label}</Text>
+    <View style={s.field}>
+      <Text style={s.inputLabel}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
-        placeholderTextColor="#738681"
-        selectionColor={c.primary}
+        placeholderTextColor="#A5B8D4"
         {...props}
-        onFocus={(event) => {
-          setFocused(true);
-          onFocus?.(event);
-        }}
-        onBlur={(event) => {
-          setFocused(false);
-          onBlur?.(event);
-        }}
-        style={[
-          styles.input,
-          props.multiline && styles.multilineInput,
-          focused && styles.focusedInput,
-          props.editable === false && styles.readonlyInput,
-          style,
-        ]}
+        style={[s.input, props.multiline && s.multiline, props.style]}
       />
     </View>
   );
@@ -234,153 +142,121 @@ export function ErrorText({ message }: { message: string }) {
   if (!message) return null;
 
   return (
-    <View style={styles.errorBox}>
-      <Text accessibilityRole="alert" style={styles.errorText}>
-        {message}
-      </Text>
-    </View>
+    <Text accessibilityRole="alert" style={s.error}>
+      {message}
+    </Text>
   );
 }
 
 export function Loading() {
   return (
-    <View style={styles.loading}>
+    <View style={[s.safe, s.loading]}>
       <ActivityIndicator size="large" color={c.primary} />
-      <Text style={styles.body}>Loading...</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: c.background,
   },
   page: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    padding: 24,
+    gap: 16,
     paddingBottom: 40,
-    gap: 18,
   },
-  intro: {
-    gap: 12,
-    marginBottom: 8,
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   brand: {
-    color: c.primary,
+    color: c.warning,
     fontSize: 12,
     fontWeight: "800",
-    letterSpacing: 2.5,
+    letterSpacing: 2,
   },
   title: {
     color: c.heading,
-    fontSize: 30,
-    lineHeight: 38,
+    fontSize: 29,
+    lineHeight: 36,
     fontWeight: "800",
   },
   heading: {
     color: c.heading,
-    fontSize: 18,
-    lineHeight: 26,
+    fontSize: 17,
     fontWeight: "700",
   },
   body: {
     color: c.text,
-    fontSize: 15,
-    lineHeight: 24,
-  },
-  card: {
-    borderColor: c.border,
-    borderWidth: 1,
-    borderRadius: 20,
-    padding: 20,
-    gap: 12,
-    shadowColor: c.heading,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  button: {
-    minHeight: 54,
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  buttonText: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  pressedButton: {
-    opacity: 0.9,
-    transform: [{ scale: 0.99 }],
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  field: {
-    gap: 8,
-  },
-  inputLabel: {
-    color: c.heading,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: "600",
-  },
-  input: {
-    minHeight: 54,
-    backgroundColor: c.card,
-    color: c.heading,
-    borderColor: c.border,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-  },
-  focusedInput: {
-    borderColor: c.primary,
-  },
-  multilineInput: {
-    minHeight: 110,
-    textAlignVertical: "top",
-  },
-  readonlyInput: {
-    backgroundColor: c.secondary,
-  },
-  badge: {
-    alignSelf: "flex-start",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  badgeText: {
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: "700",
-  },
-  errorBox: {
-    backgroundColor: "#FCEEF1",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  errorText: {
-    color: c.error,
     fontSize: 14,
     lineHeight: 22,
   },
-  loading: {
-    flex: 1,
-    backgroundColor: c.background,
+  card: {
+    backgroundColor: c.card,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: 20,
+    padding: 18,
+    gap: 10,
+  },
+  badge: {
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 19,
+  },
+  button: {
+    backgroundColor: c.primary,
+    minHeight: 52,
+    borderRadius: 16,
+    padding: 14,
     justifyContent: "center",
     alignItems: "center",
-    gap: 14,
+  },
+  secondary: {
+    backgroundColor: c.secondary,
+    borderWidth: 1,
+    borderColor: c.border,
+  },
+  disabled: { opacity: 0.45 },
+  pressed: { opacity: 0.75 },
+  label: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  secondaryLabel: {
+    color: c.secondaryText,
+  },
+  field: { gap: 7 },
+  inputLabel: {
+    color: c.heading,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  input: {
+    backgroundColor: c.card,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    minHeight: 48,
+    color: c.heading,
+  },
+  multiline: {
+    minHeight: 90,
+    textAlignVertical: "top",
+  },
+  error: {
+    color: c.error,
+    lineHeight: 22,
+  },
+  loading: {
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
