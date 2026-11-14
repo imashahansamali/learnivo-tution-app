@@ -1,109 +1,80 @@
-import React, { useState } from 'react';
-import { useAuth, logout } from '../../context/AuthContext';
-import { useCollection } from '../../hooks/useCollection';
-import { markRead } from '../../services/data';
-import type { Notice } from '../../types';
+import { getClassColor } from "../../utils/classColors";
+import React, { useState } from "react";
+import { useAuth, logout } from "../../context/AuthContext";
+import { useCollection } from "../../hooks/useCollection";
+import { markRead } from "../../services/data";
+import { Notice } from "../../types";
 import {
-  Badge,
-  Body,
-  Button,
-  Card,
-  ErrorText,
-  Heading,
   Screen,
-} from '../../components/UI';
-
-export function ResultScreen({
-  route,
-  navigation,
-}: any) {
+  Card,
+  Heading,
+  Body,
+  Badge,
+  Button,
+  ErrorText,
+} from "../../components/UI";
+export function ResultScreen({ route, navigation: n }: any) {
   return (
     <Screen title={route.params.title}>
-      <Card>
+      <Card backgroundColor={getClassColor(route.params.classId)}>
         <Body>{route.params.message}</Body>
       </Card>
-
-      <Button
-        title="My activity"
-        onPress={() => navigation.navigate('Activity')}
-      />
-
+      <Button title="My activity" onPress={() => n.navigate("Activity")} />
       <Button
         secondary
         title="Find classes"
-        onPress={() => navigation.navigate('Matches')}
+        onPress={() => n.navigate("Matches")}
       />
     </Screen>
   );
 }
-
 export function ProfileScreen() {
   const { user, profile } = useAuth();
-  const [error, setError] = useState('');
-
+  const [error, X] = useState("");
   return (
     <Screen title="My profile">
       <Card>
         <Heading>{profile?.name}</Heading>
-
         <Body>
-          {`${user?.email || ''}\n`}
-          {`${profile?.phone || ''}\n`}
+          {user?.email}
+          {profile?.phone}
           Grade {profile?.grade}
         </Body>
-
         <Badge>{profile?.role.toUpperCase()}</Badge>
       </Card>
-
       <ErrorText message={error} />
-
       <Button
         title="Sign out"
         onPress={() => {
-          logout().catch(err => setError(err.message));
+          logout().catch((e) => X(e.message));
         }}
       />
     </Screen>
   );
 }
-
 export function NotificationsScreen() {
   const { user } = useAuth();
-
-  const query = useCollection<Notice>(
-    'notifications',
-    [['userId', user!.uid]]
-  );
-
-  const [error, setError] = useState('');
-
+  const q = useCollection<Notice>("notifications", [["userId", user!.uid]]);
+  const [error, X] = useState("");
   return (
     <Screen
       title="Notifications"
-      subtitle="In-app updates from your teachers."
+      subtitle="In-app updates. No SMS or external emails are sent."
     >
-      <ErrorText message={error || query.error} />
-
-      {query.loading && <Body>Loading…</Body>}
-
-      {!query.loading && !query.items.length && (
-        <Body>No notifications yet.</Body>
-      )}
-
-      {query.items.map(item => (
-        <Card key={item.id}>
-          <Body>{item.message}</Body>
-
-          {item.read ? (
+      <ErrorText message={error || q.error} />
+      {q.loading && <Body>Loading…</Body>}
+      {!q.loading && !q.items.length && <Body>No notifications yet.</Body>}
+      {q.items.map((v) => (
+        <Card key={v.id} backgroundColor={getClassColor(v.classId)}>
+          <Body>{v.message}</Body>
+          {v.read ? (
             <Badge>READ</Badge>
           ) : (
             <Button
               secondary
               title="Mark as read"
               onPress={() => {
-                markRead(item.id).catch(err =>
-                  setError(err.message)
-                );
+                markRead(v.id).catch((e) => X(e.message));
               }}
             />
           )}
